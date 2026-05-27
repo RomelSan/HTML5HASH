@@ -1,0 +1,245 @@
+/* HTML5Hash – Dracula Theme */
+/* Palette reference: https://draculatheme.com */
+
+:root {
+    /* Dracula Background */
+    --bg-gradient-start: #282a36;
+    --bg-gradient-end: #1e1f29;
+    --glass-bg: rgba(40, 42, 54, 0.78);
+    --glass-border: rgba(98, 114, 164, 0.18);
+    --glass-border-focus: rgba(139, 233, 253, 0.4);
+    --text-primary: #f8f8f2;
+    --text-secondary: #bfc7d5;
+    --text-muted: #6272a4;
+
+    /* Dracula palette */
+    --accent-teal: #8be9fd;
+    --accent-blue: #bd93f9;
+    --accent-violet: #ff79c6;
+    --accent-success: #50fa7b;
+    --accent-success-bg: rgba(80, 250, 123, 0.1);
+    --accent-warning: #f1fa8c;
+    --accent-danger: #ff5555;
+}
+
+body {
+    background: linear-gradient(160deg, #2d2f3d 0%, #282a36 45%, #21222c 100%);
+    color: var(--text-primary);
+}
+
+#centerfield {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(248, 248, 242, 0.03);
+}
+
+header {
+    border-bottom: 1px solid rgba(98, 114, 164, 0.15);
+}
+
+header h1 {
+    background: linear-gradient(135deg, #f8f8f2 20%, var(--accent-violet) 60%, var(--accent-teal) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+}
+
+/* Algorithm cards */
+.algo-card {
+    background: rgba(248, 248, 242, 0.02);
+    border: 1px solid rgba(98, 114, 164, 0.15);
+    color: var(--text-secondary);
+}
+
+.algo-card:hover {
+    background: rgba(189, 147, 249, 0.06);
+    border-color: rgba(189, 147, 249, 0.3);
+    color: var(--text-primary);
+}
+
+.algo-card.checked-state {
+    border-color: rgba(139, 233, 253, 0.4);
+    background: rgba(139, 233, 253, 0.05);
+    color: var(--text-primary);
+}
+
+.checkbox-indicator {
+    background: rgba(248, 248, 242, 0.06);
+    border: 1px solid rgba(98, 114, 164, 0.3);
+}
+
+.algo-card input[type="checkbox"]:checked ~ .checkbox-indicator {
+    background: var(--accent-violet);
+    border-color: var(--accent-violet);
+    box-shadow: 0 0 8px rgba(255, 121, 198, 0.4);
+}
+
+.algo-card input[type="checkbox"]:checked ~ .checkbox-indicator::after {
+    border-color: #282a36;
+}
+
+/* Toggle links */
+#algosshow a, #algoshide a {
+    color: var(--accent-teal);
+    border: 1px solid rgba(139, 233, 253, 0.2);
+    background: rgba(139, 233, 253, 0.05);
+}
+
+#algosshow a:hover, #algoshide a:hover {
+    background: rgba(139, 233, 253, 0.12);
+    border-color: var(--accent-teal);
+    box-shadow: 0 0 10px rgba(139, 233, 253, 0.2);
+}
+
+/* Drop zone */
+#placeholder {
+    border: 2px dashed rgba(98, 114, 164, 0.3);
+    background: rgba(248, 248, 242, 0.01);
+}
+
+#placeholder::before {
+    color: var(--text-muted);
+}
+
+#placeholder:hover {
+    border-color: var(--accent-violet);
+    background: rgba(255, 121, 198, 0.03);
+    box-shadow: 0 0 18px rgba(255, 121, 198, 0.06);
+}
+
+#placeholder:hover::before {
+    color: var(--accent-violet);
+}
+
+#placeholder b {
+    color: var(--text-secondary);
+}
+
+#placeholder b span {
+    color: var(--accent-violet);
+}
+
+/* File entry cards */
+.entrystyle {
+    background: rgba(248, 248, 242, 0.02);
+    border: 1px solid rgba(98, 114, 164, 0.12);
+}
+
+.entrystyle.completed {
+    border-color: rgba(80, 250, 123, 0.25);
+    background: rgba(80, 250, 123, 0.03);
+}
+
+.entrystyle.completed::before {
+    background: var(--accent-success);
+}
+
+/* Progress bar */
+.progress {
+    background: rgba(98, 114, 164, 0.15);
+}
+
+.progress-bar-value {
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-violet));
+}
+
+/* Results */
+.resultdiv {
+    border-top: 1px solid rgba(98, 114, 164, 0.12);
+}
+
+.resultdiv tr {
+    border-bottom: 1px solid rgba(98, 114, 164, 0.08);
+}
+
+.algoresult {
+    color: #f8f8f2;
+}
+
+/* Copy button */
+.copy-btn {
+    background: rgba(248, 248, 242, 0.04);
+    border: 1px solid rgba(98, 114, 164, 0.2);
+    color: var(--text-secondary);
+}
+
+.copy-btn:hover {
+    background: rgba(139, 233, 253, 0.08);
+    border-color: var(--accent-teal);
+    color: var(--accent-teal);
+}
+
+.copy-btn.copied {
+    background: var(--accent-success-bg);
+    border-color: var(--accent-success);
+    color: var(--accent-success);
+}
+
+/* Stats bar */
+.control-bar {
+    background: rgba(248, 248, 242, 0.015);
+    border: 1px solid rgba(98, 114, 164, 0.1);
+}
+
+/* Danger button */
+.btn-danger {
+    background: rgba(255, 85, 85, 0.1);
+    border: 1px solid rgba(255, 85, 85, 0.25);
+    color: var(--accent-danger);
+}
+
+.btn-danger:hover {
+    background: rgba(255, 85, 85, 0.22);
+    border-color: var(--accent-danger);
+    box-shadow: 0 0 10px rgba(255, 85, 85, 0.2);
+}
+
+/* Explanation */
+aside#explanation {
+    border: 1px solid rgba(98, 114, 164, 0.1);
+    background: rgba(248, 248, 242, 0.015);
+}
+
+/* Footer */
+footer {
+    color: var(--text-muted);
+}
+
+footer a {
+    color: var(--text-secondary);
+}
+
+footer a:hover {
+    color: var(--accent-violet);
+}
+
+/* Overlay */
+#overlay {
+    background: rgba(40, 42, 54, 0.9);
+}
+
+#overlaytextbox {
+    background: rgba(68, 71, 90, 0.95);
+    border: 1px solid rgba(98, 114, 164, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+#overlaytextbox h3 {
+    color: var(--accent-danger);
+}
+
+/* Theme selector */
+.theme-selector select {
+    background: rgba(248, 248, 242, 0.05);
+    border: 1px solid rgba(98, 114, 164, 0.2);
+    color: var(--text-primary);
+}
+
+.theme-selector select:hover {
+    border-color: rgba(189, 147, 249, 0.4);
+}
+
+.theme-selector select:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.15);
+}

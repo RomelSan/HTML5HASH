@@ -4,7 +4,7 @@ $().ready(function () {
      * Helpers
      */
 
-    getUnique = function () {
+    var getUnique = function () {
         var uniquecnt = 0;
 
         function getUnique() {
@@ -19,7 +19,7 @@ $().ready(function () {
             number = 0xFFFFFFFF + number + 1;
         }
 
-        return number.toString(16);
+        return number.toString(16).padStart(8, '0');
     }
 
     function digits(number, dig) {
@@ -36,16 +36,10 @@ $().ready(function () {
            | ((val & 0xFF00) << 8)
            | ((val >> 8) & 0xFF00)
            | ((val >> 24) & 0xFF)) >>> 0;
-
     }
 
     /*
-     * Horribly inefficient but unless I find another library or
-     * (re)write stuff this is the way that just makes it work (TM).
-     *
-     * Note: Since CryptoJS 3.1 this functionality is in the framework.
-     *       However it's currently slower than this juding from my tests.
-     *       See CryptoJS components/lib-typedarrays.js
+     * CryptoJS ArrayBuffer helper
      */
     function arrayBufferToWordArray(arrayBuffer) {
         var fullWords = Math.floor(arrayBuffer.byteLength / 4);
@@ -74,7 +68,7 @@ $().ready(function () {
         }
 
         return CryptoJS.lib.WordArray.create(cp, arrayBuffer.byteLength);
-    };
+    }
 
     function bytes2si(bytes, outputdigits) {
         if (bytes < 1024) { // Bytes
@@ -83,8 +77,11 @@ $().ready(function () {
         else if (bytes < 1048576) { // KiB
             return digits(bytes / 1024, outputdigits) + " KiB";
         }
+        else if (bytes < 1073741824) { // MiB
+            return digits(bytes / 1048576, outputdigits) + " MiB";
+        }
         
-        return digits(bytes / 1048576, outputdigits) + " MiB";
+        return digits(bytes / 1073741824, outputdigits) + " GiB";
     }
 
     function bytes2si2(bytes1, bytes2, outputdigits) {
@@ -97,13 +94,17 @@ $().ready(function () {
             return digits(bytes1 / 1024, outputdigits) + "/" +
                 digits(bytes2 / 1024, outputdigits) + " KiB";
         }
+        else if (big < 1073741824) { // MiB
+            return digits(bytes1 / 1048576, outputdigits) + "/" +
+                digits(bytes2 / 1048576, outputdigits) + " MiB";
+        }
 
-        return digits(bytes1 / 1048576, outputdigits) + "/" +
-            digits(bytes2 / 1048576, outputdigits) + " MiB";
+        return digits(bytes1 / 1073741824, outputdigits) + "/" +
+            digits(bytes2 / 1073741824, outputdigits) + " GiB";
     }
 
     function progressiveRead(file, work, done) {
-        var chunkSize = 20480; // 20KiB at a time
+        var chunkSize = 2097152; // Optimized chunk size: 2 MiB
         var pos = 0;
         var reader = new FileReader();
 
@@ -117,29 +118,30 @@ $().ready(function () {
                     setTimeout(progressiveReadNext, 0);
                 }
                 else {
-                    // Done
                     done(file);
                 }
-            }
+            };
 
+            var blob;
             if (file.slice) {
-                var blob = file.slice(pos, end);
+                blob = file.slice(pos, end);
             }
             else if (file.webkitSlice) {
-                var blob = file.webkitSlice(pos, end);
+                blob = file.webkitSlice(pos, end);
             }
-            reader.readAsArrayBuffer(blob);
+            
+            if (blob) {
+                reader.readAsArrayBuffer(blob);
+            } else {
+                done(file); // Safety fallback
+            }
         }
 
         setTimeout(progressiveReadNext, 0);
-    };
+    }
 
-    // List all CryptoJS based supported algorithms so we can handle them
-    // in one codepath. We could also use this to dynamically add these
-    // options to the UI but this might prevent search engines from properly
-    // picking them up.
-
-    var algorithms = [
+    // List all CryptoJS-based supported algorithms
+    var cryptoJSAlgorithms = [
         { name: "MD5", type: CryptoJS.algo.MD5 },
         { name: "SHA1", type: CryptoJS.algo.SHA1 },
         { name: "SHA256",  type: CryptoJS.algo.SHA256 },
@@ -151,122 +153,224 @@ $().ready(function () {
         { name: "RIPEMD-160", type: CryptoJS.algo.RIPEMD160 }
     ];
 
+    // Stats variables
+    var statsTotalFiles = 0;
+    var statsTotalSize = 0;
+
+    function updateStatsBar() {
+        if (statsTotalFiles > 0) {
+            $("#statsBar").show();
+            $("#stats-count").text(statsTotalFiles);
+            $("#stats-size").text(bytes2si(statsTotalSize, 2));
+        } else {
+            $("#statsBar").hide();
+        }
+    }
+
+    // Setup Copy helper
+    window.copyToClipboard = function(btn) {
+        var $btn = $(btn);
+        var $hashSpan = $btn.siblings('.algoresult');
+        var hashText = $hashSpan.text();
+        
+        navigator.clipboard.writeText(hashText).then(function() {
+            var originalText = $btn.text();
+            $btn.text('Copied!').addClass('copied');
+            setTimeout(function() {
+                $btn.text(originalText).removeClass('copied');
+            }, 1500);
+        }).catch(function(err) {
+            console.error('Failed to copy: ', err);
+            // Fallback for older browsers / non-secure contexts
+            var $temp = $("<input>");
+            $("body").append($temp);
+            $temp.val(hashText).select();
+            document.execCommand("copy");
+            $temp.remove();
+            
+            var originalText = $btn.text();
+            $btn.text('Copied!').addClass('copied');
+            setTimeout(function() {
+                $btn.text(originalText).removeClass('copied');
+            }, 1500);
+        });
+    };
+
+    function renderResultRow(algoName, hashValue) {
+        return '<tr>' +
+            '<td class="algoname">' + escapeHtml(algoName) + ':</td>' +
+            '<td class="algoresult-container">' +
+                '<span class="algoresult">' + escapeHtml(hashValue) + '</span>' +
+                '<button type="button" class="copy-btn" onclick="copyToClipboard(this)">Copy</button>' +
+            '</td>' +
+            '</tr>';
+    }
+
     function handleFileSelect(evt) {
         evt.stopPropagation();
         evt.preventDefault();
+        
+        var files;
         if (evt.target.files) {
-            var files = evt.target.files;
+            files = evt.target.files;
         }
-        else {
-            var files = evt.dataTransfer.files; // FileList object.
+        else if (evt.dataTransfer && evt.dataTransfer.files) {
+            files = evt.dataTransfer.files;
         }
+        
+        if (!files || files.length === 0) return;
 
         for (var i = 0, f; f = files[i]; i++) {
-
-            (function () {
+            (function (file) {
                 var start = (new Date).getTime();
                 var lastprogress = 0;
 
-                var enabledAlgorithms = [];
-                for (var j = 0; j < algorithms.length; j++) {
-                    var current = algorithms[j];
+                // 1. Identify enabled CryptoJS algorithms
+                var enabledCryptoJS = [];
+                for (var j = 0; j < cryptoJSAlgorithms.length; j++) {
+                    var current = cryptoJSAlgorithms[j];
                     if ($('[name="' + current.name + '-switch"]').prop("checked")) {
-                        // Param will not exist for some but that's ok
                         var algoInst = { name: current.name, instance: current.type.create(current.param) };
-                        enabledAlgorithms.push(algoInst);
+                        enabledCryptoJS.push(algoInst);
                     }
                 }
 
-                // Special case CRC32 as it's not part of CryptoJS and takes another input format.
+                // 2. Identify enabled CRC-32 (legacy JS implementation)
                 var doCRC32 = $('[name="crc32switch"]').prop("checked");
+                var crc32intermediate = 0;
 
-                if (doCRC32) var crc32intermediate = 0;
+                // 3. Identify enabled WebAssembly algorithms
+                var wasmAlgosToInit = [];
+                if ($('[name="XXH3-64-switch"]').prop("checked")) {
+                    wasmAlgosToInit.push({ name: "XXH3-64", creator: hashwasm.createXXHash3 });
+                }
+                if ($('[name="XXH3-128-switch"]').prop("checked")) {
+                    wasmAlgosToInit.push({ name: "XXH3-128", creator: hashwasm.createXXHash128 });
+                }
+                if ($('[name="BLAKE3-switch"]').prop("checked")) {
+                    wasmAlgosToInit.push({ name: "BLAKE3", creator: hashwasm.createBLAKE3 });
+                }
+                if ($('[name="CRC64-switch"]').prop("checked")) {
+                    wasmAlgosToInit.push({ name: "CRC64", creator: hashwasm.createCRC64 });
+                }
 
+                // Generate UI list card
                 var uid = "filehash" + getUnique();
-
                 $("#list").append('<li id="' + uid + '" class="entrystyle">'
-                    + '<b>' + escapeHtml(f.name) + ' <span class="progresstext"></span></b>'
-                    + '<div class="progress"></div>'
+                    + '<b>' + escapeHtml(file.name) + ' <span class="progresstext"></span></b>'
+                    + '<div class="progress"><div class="progress-bar-value" style="width: 0%"></div></div>'
                     + '</li>');
 
-                progressiveRead(f,
-                function (data, pos, file) {
-                    // Work
-                    if (enabledAlgorithms.length > 0) {
-                        // Easiest way to get this up and running ;-) Obvious optimization potential there.
-                        var wordArray = arrayBufferToWordArray(data);
-                    }
+                // Update stats
+                statsTotalFiles++;
+                statsTotalSize += file.size;
+                updateStatsBar();
 
-                    for (var j = 0; j < enabledAlgorithms.length ; j++) {
-                        enabledAlgorithms[j].instance.update(wordArray);
-                    }
-
-                    if (doCRC32) crc32intermediate = crc32(new Uint8Array(data), crc32intermediate);
-
-                    // Update progress display
-                    var progress = Math.floor((pos / file.size) * 100);
-                    if (progress > lastprogress) {
-                        var took = ((new Date).getTime() - start) / 1000;
-
-                        if (took > 0.1) // Only show progressbar after 100ms so it won't show for very small files
-                            $("#" + uid + " .progress").progressbar({ value: progress });
-
-                        $("#" + uid + " .progresstext").html('('
-                            + bytes2si2(pos, file.size, 2) + ' @ ' + bytes2si(pos / took, 2) + '/s )');
-                        
-                        lastprogress = progress;
-                    }
-                },
-                function (file) {
-                    // Done
-                    var took = ((new Date).getTime() - start) / 1000;
-
-                    var results = '<div class="resultdiv"><table>';
-
-                    if (doCRC32) results += '<tr><td>CRC-32:</td><td>' + decimalToHexString(crc32intermediate) + '</td></tr>';
-
-                    for (var j = 0; j < enabledAlgorithms.length ; j++) {
-                        results += '<tr><td class="algoname">' + enabledAlgorithms[j].name + ':</td><td class="algoresult">' + enabledAlgorithms[j].instance.finalize() + '</td></tr>';
-                    }
-
-                    results += '</table></div>';
-
-                    results += '<span class="resulttaken">Time taken: ' + digits(took, 2) + 's @ ' + bytes2si(file.size / took, 2) + '/s</span><br />';
+                // Initialize WebAssembly instances asynchronously before reading file
+                Promise.all(wasmAlgosToInit.map(function(item) {
+                    return item.creator().then(function(hasher) {
+                        hasher.init();
+                        return { name: item.name, instance: hasher };
+                    });
+                })).then(function(enabledWasmAlgos) {
                     
-                    $("#" + uid).append(results);
+                    // Start reading
+                    progressiveRead(file,
+                    function (data, pos, fileObj) {
+                        // Work chunk
+                        var wordArray;
+                        if (enabledCryptoJS.length > 0) {
+                            wordArray = arrayBufferToWordArray(data);
+                        }
 
-                    $("#" + uid + " .progress")
-                        .hide('slow');
+                        for (var j = 0; j < enabledCryptoJS.length ; j++) {
+                            enabledCryptoJS[j].instance.update(wordArray);
+                        }
 
-                    $("#" + uid)
-                        .css('background-color', '#F0FFF0');
+                        var uint8Chunk = new Uint8Array(data);
+                        for (var k = 0; k < enabledWasmAlgos.length; k++) {
+                            enabledWasmAlgos[k].instance.update(uint8Chunk);
+                        }
+
+                        if (doCRC32) {
+                            crc32intermediate = crc32(uint8Chunk, crc32intermediate);
+                        }
+
+                        // Update progress bar
+                        var progress = Math.floor((pos / fileObj.size) * 100);
+                        if (progress > lastprogress) {
+                            var took = ((new Date).getTime() - start) / 1000;
+
+                            if (took > 0.1) {
+                                $("#" + uid + " .progress-bar-value").css('width', progress + '%');
+                            }
+
+                            $("#" + uid + " .progresstext").html('('
+                                + bytes2si2(pos, fileObj.size, 2) + ' @ ' + bytes2si(pos / took, 2) + '/s )');
+                            
+                            lastprogress = progress;
+                        }
+                    },
+                    function (fileObj) {
+                        // Hashing done
+                        var took = ((new Date).getTime() - start) / 1000;
+                        if (took <= 0) took = 0.001; // Safety divide-by-zero
+
+                        var results = '<div class="resultdiv"><table>';
+
+                        if (doCRC32) {
+                            var crc32Val = decimalToHexString(crc32intermediate);
+                            results += renderResultRow("CRC-32", crc32Val);
+                        }
+
+                        for (var k = 0; k < enabledWasmAlgos.length; k++) {
+                            var hashVal = enabledWasmAlgos[k].instance.digest();
+                            results += renderResultRow(enabledWasmAlgos[k].name, hashVal);
+                        }
+
+                        for (var j = 0; j < enabledCryptoJS.length ; j++) {
+                            var hashVal = enabledCryptoJS[j].instance.finalize().toString();
+                            results += renderResultRow(enabledCryptoJS[j].name, hashVal);
+                        }
+
+                        results += '</table></div>';
+                        results += '<span class="resulttaken">Time taken: ' + digits(took, 2) + 's @ ' + bytes2si(fileObj.size / took, 2) + '/s</span>';
+                        
+                        $("#" + uid).append(results);
+                        $("#" + uid).addClass('completed');
+
+                        $("#" + uid + " .progress")
+                            .hide('slow');
+                    });
+                }).catch(function(err) {
+                    console.error("WASM Hasher Initialization failed: ", err);
+                    $("#" + uid + " .progresstext").html('<span style="color: var(--accent-danger);">Initialization failed</span>');
                 });
-            })();
-        };
 
+            })(f);
+        }
     }
 
     function handleDragOver(evt) {
         evt.stopPropagation();
         evt.preventDefault();
-        evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+        if (evt.dataTransfer) {
+            evt.dataTransfer.dropEffect = 'copy';
+        }
     }
 
-    function triggerFileSelection(node) {
-            $("#hiddenFilesSelector").click();
+    function triggerFileSelection() {
+        $("#hiddenFilesSelector").click();
     }
 
     function compatible() {
         try {
-            // Check for FileApi
-            if (typeof FileReader == "undefined") return false;
-
-            // Check for Blob and slice api
-            if (typeof Blob == "undefined") return false;
+            if (typeof FileReader === "undefined") return false;
+            if (typeof Blob === "undefined") return false;
+            
             var blob = new Blob();
             if (!blob.slice && !blob.webkitSlice) return false;
 
-            // Check for Drag-and-drop
             if (!('draggable' in document.createElement('span'))) return false;
         } catch (e) {
             return false;
@@ -274,34 +378,62 @@ $().ready(function () {
         return true;
     }
 
-    // Hide incompatibility warning
-    $("#overlay").hide();
-    $("#overlaytextbox").hide();
+    // Interactive custom checkbox labels
+    $('input[type="checkbox"]').on('change', function() {
+        $(this).closest('.algo-card').toggleClass('checked-state', this.checked);
+    });
+    
+    // Initial checkbox visual states
+    $('input[type="checkbox"]').each(function() {
+        $(this).closest('.algo-card').toggleClass('checked-state', this.checked);
+    });
 
-    // Hide the additional algorithms
+    // Check browser compatibility and toggle warnings
+    if (compatible()) {
+        $("#overlay").hide();
+        $("#overlaytextbox").hide();
+    } else {
+        $("#overlay").show();
+        $("#overlaytextbox").show();
+    }
+
+    // Hide the additional algorithms initial layout
     $(".additionalalgos").hide();
 
-    // Setup the dnd listeners.
+    // Setup the drag and drop listeners
     var dropZone = document.getElementById('drop_zone');
-    dropZone.addEventListener('dragover', handleDragOver, false);
-    dropZone.addEventListener('drop', handleFileSelect, false);
+    if (dropZone) {
+        dropZone.addEventListener('dragover', handleDragOver, false);
+        dropZone.addEventListener('drop', handleFileSelect, false);
+    }
 
     // Setup browse listener
     var fileSelector = document.getElementById('hiddenFilesSelector');
-    fileSelector.addEventListener('change', handleFileSelect, false);
+    if (fileSelector) {
+        fileSelector.addEventListener('change', handleFileSelect, false);
+    }
 
     $("#placeholder").click(triggerFileSelection);
 
-    // Setup more/less buttons for hiding showing additional algorithm options
-    var algoshidden = true;
-    $("#algosshow").click(function (node) {
+    // Setup more/less buttons
+    $("#algosshow").click(function (e) {
+        e.preventDefault();
         $(".additionalalgos").show();
         $("#algosshow").hide();
     });
 
-    $("#algoshide").click(function (node) {
+    $("#algoshide").click(function (e) {
+        e.preventDefault();
         $(".additionalalgos").hide();
         $("#algosshow").show();
+    });
+
+    // Clear stats and lists
+    $("#clear-list-btn").click(function() {
+        $("#list").empty();
+        statsTotalFiles = 0;
+        statsTotalSize = 0;
+        updateStatsBar();
     });
 
 });

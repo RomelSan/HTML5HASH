@@ -1,20 +1,21 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html itemscope itemtype="http://schema.org/WebApplication">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <meta itemprop="name" content="HTML5HASH" />
-    <meta itemprop="description" content="A tool that uses HTML5 features to provide file hashing with crc32, md5, sha1, sha256, sha512, sha3 and ripdemd160 without the need to upload anything." />
-    <!-- Does anyone parse these? Maybe for future crawlers ;-) -->
+    <meta itemprop="description" content="A tool that uses HTML5 features to provide file hashing with crc32, crc64, md5, sha1, sha256, sha512, sha3, ripdemd160, xxh3-64, xxh3-128 and blake3 completely offline without uploading anything." />
     <meta itemprop="author" content="Stefan Hacker, Romel Vera" />
     <meta itemprop="applicationCategory" content="Tool" />
     <meta itemprop="applicationSubCategory" content="Hashing tool" />
     <meta itemprop="browserRequirements" content="HTML5 support including FileReader(), Blob() with slices as well as Drag & Drop" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>HTML5HASH, hashing files in your browser</title>
+    <title>HTML5HASH - Offline File Hashing in Your Browser</title>
     
-    <link type="text/css" href="css/ui-lightness/jquery-ui.css" rel="stylesheet" />
     <link type="text/css" href="html5hash.css" rel="stylesheet" />
+    <link type="text/css" id="theme-stylesheet" rel="stylesheet" />
 
+    <!-- Core CryptoJS Libraries -->
     <script type="text/javascript" src="js/md5.js"></script>
     <script type="text/javascript" src="js/sha1.js"></script>
     <script type="text/javascript" src="js/sha256.js"></script>
@@ -22,8 +23,15 @@
     <script type="text/javascript" src="js/sha3.js"></script>
     <script type="text/javascript" src="js/ripemd160.js"></script>
     <script type="text/javascript" src="js/crc32.js"></script>
-    <script type="text/javascript" src="jquery/jquery-3.1.1.min.js"></script>
-    <script type="text/javascript" src="jquery/jquery-ui-1.12.1.min.js"></script>
+    
+    <!-- New Offline High-Performance WASM Libraries -->
+    <script type="text/javascript" src="js/blake3.umd.min.js"></script>
+    <script type="text/javascript" src="js/xxhash3.umd.min.js"></script>
+    <script type="text/javascript" src="js/xxhash128.umd.min.js"></script>
+    <script type="text/javascript" src="js/crc64.umd.min.js"></script>
+    
+    <!-- jQuery Core -->
+    <script type="text/javascript" src="jquery/jquery-4.0.0.min.js"></script>
     <script type="text/javascript" src="html5hash.js"></script>
 </head>
 
@@ -31,68 +39,197 @@
     <div id="centerfield">
 
         <header>
+            <div class="header-top">
+                <h1>HTML5HASH</h1>
+                <div class="theme-selector">
+                    <label for="theme-select">Theme</label>
+                    <select id="theme-select">
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                        <option value="nord">Nord</option>
+                        <option value="dracula">Dracula</option>
+                    </select>
+                </div>
+            </div>
+            
             <fieldset id="algo_selection">
-                <legend>Algorithm selection</legend>
+                <legend>Algorithm Selection</legend>
                 <form>
                     <table>
                         <tr>
-                            <td><input type="checkbox" name="crc32switch" checked="checked" />CRC-32</td>
-                            <td><input type="checkbox" name="MD5-switch" />MD5</td>
-                            <td><input type="checkbox" name="SHA1-switch" />SHA1   </td>
-                            <td id="algosshow"><a href="#">more</a></td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="crc32switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    CRC-32
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="CRC64-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    CRC-64
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="XXH3-64-switch" checked="checked" />
+                                    <span class="checkbox-indicator"></span>
+                                    XXH3-64
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="XXH3-128-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    XXH3-128
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="BLAKE3-switch" checked="checked" />
+                                    <span class="checkbox-indicator"></span>
+                                    BLAKE3
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA256-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA256
+                                </label>
+                            </td>
+                            <td id="algosshow"><a href="#">more algorithms</a></td>
                         </tr>
+                        
                         <tr class="additionalalgos">
-                            <td><input type="checkbox" name="RIPEMD-160-switch" />RIPEMD-160</td>
-                            <td><input type="checkbox" name="SHA256-switch" />SHA256</td>
-                            <td><input type="checkbox" name="SHA512-switch" />SHA512</td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="MD5-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    MD5
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA1-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA1
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA512-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA512
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="RIPEMD-160-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    RIPEMD-160
+                                </label>
+                            </td>
                         </tr>
+                        
                         <tr class="additionalalgos">
-                            <td><input type="checkbox" name="SHA3-224-switch" />SHA3-224</td>
-                            <td><input type="checkbox" name="SHA3-256-switch" />SHA3-256</td>
-                            <td><input type="checkbox" name="SHA3-384-switch" />SHA3-384</td>
-                        </tr>
-                        <tr class="additionalalgos">
-                            <td><input type="checkbox" name="SHA3-512-switch" />SHA3-512</td>
-                            <td>&nbsp;</td>
-                            <td id="algoshide"><a href="#">less</a></td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA3-224-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA3-224
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA3-256-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA3-256
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA3-384-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA3-384
+                                </label>
+                            </td>
+                            <td>
+                                <label class="algo-card">
+                                    <input type="checkbox" name="SHA3-512-switch" />
+                                    <span class="checkbox-indicator"></span>
+                                    SHA3-512
+                                </label>
+                            </td>
+                            <td id="algoshide"><a href="#">less algorithms</a></td>
                         </tr>
                     </table>
                 </form>
             </fieldset>
-        
-            <h1>HTML5HASH</h1>
-
         </header>
 
         <article>
+            <div id="placeholder">
+                <b>Drag & drop files here or <span>click to browse</span>.</b>
+            </div>
+            <input type="file" id="hiddenFilesSelector" multiple />
+            
+            <div class="control-bar" id="statsBar" style="display: none;">
+                <div class="stats-container">
+                    <div class="stats-item">Files: <span id="stats-count">0</span></div>
+                    <div class="stats-item">Total Size: <span id="stats-size">0 b</span></div>
+                </div>
+                <button type="button" id="clear-list-btn" class="btn-danger">Clear List</button>
+            </div>
+
             <ul id="list">
-                <li>
-                    <b>File selection</b>
-                    <div id="placeholder">
-                        <b>Drop</b> files here or <b>click to browse.</b>
-                    </div>
-                    <input type="file" id="hiddenFilesSelector" multiple />
-                </li>
+                <!-- Appended dynamically -->
             </ul>
         </article>
 
         <aside id="explanation">
-            <span itemprop="description">Hashes are computed locally. No files or information on files will be uploaded.</span>
+            <span itemprop="description">All hashing is computed locally in your browser. No file data is uploaded to any server.</span>
         </aside>
 
     </div>
 
     <footer>
-        Copyright © 2012-2017 Stefan Hacker, Romel Vera
+        <span>Copyright © 2012-2026 Stefan Hacker, Romel Vera</span>
+        <span>Offline Hashing Tool</span>
     </footer>
 
-
-    <div id="overlay">
-
+    <div id="overlay"></div>
+    <div id="overlaytextbox">
+        <h3>Browser Incompatible</h3>
+        <p>Your browser lacks the HTML5 features (FileReader or drag-and-drop APIs) required to run this application locally.</p>
     </div>
 
-    <div id="social">
-	</div>
+    <script>
+    (function() {
+        var themeMap = {
+            dark: '',
+            light: 'css/theme-light.css',
+            nord: 'css/theme-nord.css',
+            dracula: 'css/theme-dracula.css'
+        };
+        var link = document.getElementById('theme-stylesheet');
+        var select = document.getElementById('theme-select');
+        var saved = localStorage.getItem('html5hash-theme') || 'dark';
+
+        function applyTheme(name) {
+            var href = themeMap[name] || '';
+            link.setAttribute('href', href);
+            select.value = name;
+            localStorage.setItem('html5hash-theme', name);
+        }
+
+        applyTheme(saved);
+        select.addEventListener('change', function() {
+            applyTheme(this.value);
+        });
+    })();
+    </script>
 
 </body>
 </html>
