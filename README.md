@@ -16,4 +16,4 @@ A premium, modern client-side file hashing tool designed to work 100% offline. C
 
 
 
-![Screenshot](media\HTML5HASH.png)
+![Screenshot](./media/HTML5HASH.png?raw=true)
